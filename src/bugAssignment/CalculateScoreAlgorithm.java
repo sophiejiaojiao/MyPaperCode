@@ -185,7 +185,7 @@ public class CalculateScoreAlgorithm {
                 // means that the issueDate > postDate即在缺陷报告之前有相关QA互动信息
                 if (issueDate.compareTo(post_onlyLimitedInfo.creationDate) > 0) {
                     //******************************添加关键字的时效性开始*********************
-                    int timeOfTag = 0;
+                    boolean timeOfTag = false;
                     try {
                         timeOfTag = calculateTimeOfTag(issueDate, post_onlyLimitedInfo.creationDate);
                     } catch (ParseException e) {
@@ -210,74 +210,88 @@ public class CalculateScoreAlgorithm {
                         post_completeInfo = ProvideData.copySOPostFromStringArray_OnlyThereAreSomeFields1(allPosts1ById.get(post_onlyLimitedInfo.parentId));
                     String[] tags = splitAnStringIncludingAllTagsToStringArrayOfTags(post_completeInfo.tags);
                     // *********************************开始加权********************************
-//                    HashMap<String, Double> numOfTags = calculateNumOfTagInIssueText(
-//                            tags, issTI);
-//                    double wOfTags = 0;
-//                    for (int j = 0; j < tags.length; j++) {
-//                        if (textIsMatchedWithTagOrNot(issTI.projectLanguage,
-//                                tags[j])
-//                                || textIsMatchedWithTagOrNot(
-//                                issTI.projectDescription, tags[j])
-//                                || textIsMatchedWithTagOrNot(issTI.issueTitle,
-//                                tags[j])
-//                                || textIsMatchedWithTagOrNot(issTI.issueBody,
-//                                tags[j])) {
-//                            if (originalPostTypeId.equals("2")) {
-//                                cm.intersection_A++;
-//                                cm.intersection_A_score = cm.intersection_A_score
-//                                        + (scoreOfThePost * (1 / (timeOfTag + 1)) + 1)
-//                                        * numOfTags.get(tags[j]);
-//                            } else if (originalPostTypeId.equals("1")) {
-//                                cm.intersection_Q++;
-//                                wOfTags = wOfTags + numOfTags.get(tags[j]);
-//                            }
-//                        }
-//                    }
-//                    int tempScoreOfThePost;
-//                    if (scoreOfThePost < 0) {
-//                        tempScoreOfThePost = 0;
-//                    } else {
-//                        tempScoreOfThePost = scoreOfThePost;
-//                    }
-//                    cm.intersection_Q_score = cm.intersection_Q_score + wOfTags
-//                            / (tempScoreOfThePost * (1 / (timeOfTag + 1)) + 1.0);
+                    HashMap<String, Double> numOfTags = calculateNumOfTagInIssueText(
+                            tags, issTI);
+                    double wOfTags = 0;
+                    for (int j = 0; j < tags.length; j++) {
+                        if (textIsMatchedWithTagOrNot(issTI.projectLanguage,
+                                tags[j])
+                                || textIsMatchedWithTagOrNot(
+                                issTI.projectDescription, tags[j])
+                                || textIsMatchedWithTagOrNot(issTI.issueTitle,
+                                tags[j])
+                                || textIsMatchedWithTagOrNot(issTI.issueBody,
+                                tags[j])) {
+                            if (originalPostTypeId.equals("2")) {
+                                cm.intersection_A++;
+                                if (timeOfTag) {
+                                    cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost * 0.2 + 1) * numOfTags.get(tags[j]);
+                                } else {
+                                    cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost * 1.1 + 1) * numOfTags.get(tags[j]);
+                                }
+                            } else if (originalPostTypeId.equals("1")) {
+                                cm.intersection_Q++;
+                                wOfTags = wOfTags + numOfTags.get(tags[j]);
+                            }
+                        }
+                    }
+                    int tempScoreOfThePost;
+                    if (scoreOfThePost < 0) {
+                        tempScoreOfThePost = 0;
+                    } else {
+                        tempScoreOfThePost = scoreOfThePost;
+                    }
+                    if (timeOfTag) {
+                        cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost * 0.2 + 1.0);
+                    } else {
+                        cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost * 1.1 + 1.0);
+                    }
                     // ********************************结束加权*********************************
 
                     // ********************************未加权开始*********************************
-                    int numberOfMatchedTags = 0;
-                    for (int j = 0; j < tags.length; j++) {//For all tags
-                        //只要tags中的某个tag与缺陷报告文本信息成功匹配一次，分数就加1，然后匹配下一个tag
-                        if (textIsMatchedWithTagOrNot(issTI.projectLanguage,
-                                tags[j]) ||
-                                textIsMatchedWithTagOrNot(issTI.projectDescription,
-                                        tags[j]) ||
-                                textIsMatchedWithTagOrNot(issTI.issueTitle, tags[j]) ||
-                                textIsMatchedWithTagOrNot(issTI.issueBody, tags[j])
-                                ) {
-                            cm.intersection_AQ++;
-                            cm.intersection_AQ_score = cm.intersection_AQ_score +
-                                    scoreOfThePost + 1; //considering the answer a score,then each upvote adds an score to that.
-                            if (originalPostTypeId.equals("2")) {//i.e., this post isan answer:
-                                cm.intersection_A++;
-                                //A_score=A_score+(upVote+1)*match_tag;为什么match_tag默认为1？
-                                //******************测试时效性开始*******************
-                                cm.intersection_A_score = cm.intersection_A_score + scoreOfThePost * (1 / (timeOfTag+1)) + 1; //considering the answer a score,then each upvote adds an score to that.
-                                //******************测试时效性结束*******************
-                            }//if (origi....
-                            else if (originalPostTypeId.equals("1")) { //i.e., this post is a question
-                                cm.intersection_Q++;
-                                numberOfMatchedTags++;
-                            }
-                        }//if (textIs....
-                    }//for (j.
-                    int tempScoreOfThePost;
-                    if (scoreOfThePost < 0)//如果vote<0,则将vote置为0；否则计算Q_score
-                        tempScoreOfThePost = 0;
-                    else
-                        tempScoreOfThePost = scoreOfThePost;
-                    //计算Q_score的公式:Q_score=u*Q_score+(match_tag)/(upVote+1)
-                    //*****************************测试时效性开始**********************************尝试1，2，3，4，5，6，7，8，9，10看哪个的结果更好
-                    cm.intersection_Q_score = cm.intersection_Q_score + numberOfMatchedTags / (tempScoreOfThePost * (10 / (timeOfTag+1))+ 1.0);
+//                    int numberOfMatchedTags = 0;
+//                    for (int j = 0; j < tags.length; j++) {//For all tags
+//                        //只要tags中的某个tag与缺陷报告文本信息成功匹配一次，分数就加1，然后匹配下一个tag
+//                        if (textIsMatchedWithTagOrNot(issTI.projectLanguage,
+//                                tags[j]) ||
+//                                textIsMatchedWithTagOrNot(issTI.projectDescription,
+//                                        tags[j]) ||
+//                                textIsMatchedWithTagOrNot(issTI.issueTitle, tags[j]) ||
+//                                textIsMatchedWithTagOrNot(issTI.issueBody, tags[j])
+//                                ) {
+//                            cm.intersection_AQ++;
+//                            cm.intersection_AQ_score = cm.intersection_AQ_score +
+//                                    scoreOfThePost + 1; //considering the answer a score,then each upvote adds an score to that.
+//                            if (originalPostTypeId.equals("2")) {//i.e., this post isan answer:
+//                                cm.intersection_A++;
+//                                //A_score=A_score+(upVote+1)*match_tag;为什么match_tag默认为1？
+//                                //******************测试时效性开始*******************
+//                                if (timeOfTag) {
+//                                    cm.intersection_A_score = cm.intersection_A_score + scoreOfThePost * 0.5 + 1;
+//                                } else {
+//                                    cm.intersection_A_score = cm.intersection_A_score + scoreOfThePost + 1;
+//                                }
+//                                //considering the answer a score,then each upvote adds an score to that.
+//                                //******************测试时效性结束*******************
+//                            }//if (origi....
+//                            else if (originalPostTypeId.equals("1")) { //i.e., this post is a question
+//                                cm.intersection_Q++;
+//                                numberOfMatchedTags++;
+//                            }
+//                        }//if (textIs....
+//                    }//for (j.
+//                    int tempScoreOfThePost;
+//                    if (scoreOfThePost < 0)//如果vote<0,则将vote置为0；否则计算Q_score
+//                        tempScoreOfThePost = 0;
+//                    else
+//                        tempScoreOfThePost = scoreOfThePost;
+//                    //计算Q_score的公式:Q_score=u*Q_score+(match_tag)/(upVote+1)
+//                    //*****************************测试时效性开始**********************************
+//                    if (timeOfTag) {
+//                        cm.intersection_Q_score = cm.intersection_Q_score + numberOfMatchedTags / (tempScoreOfThePost + 1.0);
+//                    } else {
+//                        cm.intersection_Q_score = cm.intersection_Q_score + numberOfMatchedTags / (tempScoreOfThePost + 1.0);
+//                    }
                     //******************************测试时效性结束**********************************
                     // ************************************未加权结束**********************************************
                 }// if issueD....
@@ -321,7 +335,7 @@ public class CalculateScoreAlgorithm {
     }// calculateScores().
 
     //计算每条post对应upVa的时效性
-    public static int calculateTimeOfTag(String issueDate, String postDate) throws ParseException {
+    public static boolean calculateTimeOfTag(String issueDate, String postDate) throws ParseException {
         String issueStart = issueDate.replaceAll("[T,Z]", "");
         String postEnd = postDate.replaceAll("[T,Z]", "");
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-ddhh:mm:ss");
@@ -329,8 +343,13 @@ public class CalculateScoreAlgorithm {
         Date pEnd = sdf.parse(postEnd);
         long diffSeconds = (iStart.getTime() - pEnd.getTime()) / 1000;
         int day = (int) (diffSeconds / (24 * 3600));
-        return day;
+        if (day / 365 - 2 >= 0) {
+            return true;
+        } else {
+            return false;
+        }
     }
+
 
     public static HashMap<String, Double> calculateNumOfTagInIssueText(
             String[] tags, IssueTextualInformation issTI) {
