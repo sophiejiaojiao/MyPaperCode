@@ -170,7 +170,7 @@ public class CalculateScoreAlgorithm {
                                        CommunityMember cm, // ArrayList<Issue> issAL,
                                        int indexOfTheCurrentIssue,
                                        int maximumNumberOfPreviousAssignmentsForAMemberInThisProject,
-                                       double NF) {// NF: Normalization Factor =
+                                       double NF, double meanDayOfPosts) {// NF: Normalization Factor =
         // averageOfUpVotesForQuestionsTaggedWithAtLeastOneOfTagsInMatchedTags_SO_b
         // if (cm.SOId.equals("900911"))
         // System.out.println("ssss");
@@ -185,9 +185,9 @@ public class CalculateScoreAlgorithm {
                 // means that the issueDate > postDate即在缺陷报告之前有相关QA互动信息
                 if (issueDate.compareTo(post_onlyLimitedInfo.creationDate) > 0) {
                     //******************************添加关键字的时效性开始*********************
-                    boolean timeOfTag = false;
+                    double timeOfUpVote = 0;
                     try {
-                        timeOfTag = calculateTimeOfTag(issueDate, post_onlyLimitedInfo.creationDate);
+                        timeOfUpVote = calculateTimeOfTag(issueDate, post_onlyLimitedInfo.creationDate) / 365;
                     } catch (ParseException e) {
                         e.printStackTrace();
                     }
@@ -224,11 +224,8 @@ public class CalculateScoreAlgorithm {
                                 tags[j])) {
                             if (originalPostTypeId.equals("2")) {
                                 cm.intersection_A++;
-                                if (timeOfTag) {
-                                    cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost * 0.2 + 1) * numOfTags.get(tags[j]);
-                                } else {
-                                    cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost * 1.1 + 1) * numOfTags.get(tags[j]);
-                                }
+                                double tempValue = 1 - (timeOfUpVote - meanDayOfPosts) / meanDayOfPosts;
+                                cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost * tempValue + 1) * numOfTags.get(tags[j]);
                             } else if (originalPostTypeId.equals("1")) {
                                 cm.intersection_Q++;
                                 wOfTags = wOfTags + numOfTags.get(tags[j]);
@@ -241,11 +238,8 @@ public class CalculateScoreAlgorithm {
                     } else {
                         tempScoreOfThePost = scoreOfThePost;
                     }
-                    if (timeOfTag) {
-                        cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost * 0.2 + 1.0);
-                    } else {
-                        cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost * 1.1 + 1.0);
-                    }
+                    double tempValue = 1 - (timeOfUpVote - meanDayOfPosts) / meanDayOfPosts;
+                    cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost * tempValue + 1.0);
                     // ********************************结束加权*********************************
 
                     // ********************************未加权开始*********************************
@@ -265,14 +259,6 @@ public class CalculateScoreAlgorithm {
 //                            if (originalPostTypeId.equals("2")) {//i.e., this post isan answer:
 //                                cm.intersection_A++;
 //                                //A_score=A_score+(upVote+1)*match_tag;为什么match_tag默认为1？
-//                                //******************测试时效性开始*******************
-//                                if (timeOfTag) {
-//                                    cm.intersection_A_score = cm.intersection_A_score + scoreOfThePost * 0.5 + 1;
-//                                } else {
-//                                    cm.intersection_A_score = cm.intersection_A_score + scoreOfThePost + 1;
-//                                }
-//                                //considering the answer a score,then each upvote adds an score to that.
-//                                //******************测试时效性结束*******************
 //                            }//if (origi....
 //                            else if (originalPostTypeId.equals("1")) { //i.e., this post is a question
 //                                cm.intersection_Q++;
@@ -286,13 +272,6 @@ public class CalculateScoreAlgorithm {
 //                    else
 //                        tempScoreOfThePost = scoreOfThePost;
 //                    //计算Q_score的公式:Q_score=u*Q_score+(match_tag)/(upVote+1)
-//                    //*****************************测试时效性开始**********************************
-//                    if (timeOfTag) {
-//                        cm.intersection_Q_score = cm.intersection_Q_score + numberOfMatchedTags / (tempScoreOfThePost + 1.0);
-//                    } else {
-//                        cm.intersection_Q_score = cm.intersection_Q_score + numberOfMatchedTags / (tempScoreOfThePost + 1.0);
-//                    }
-                    //******************************测试时效性结束**********************************
                     // ************************************未加权结束**********************************************
                 }// if issueD....
             }// for (i.
@@ -335,19 +314,16 @@ public class CalculateScoreAlgorithm {
     }// calculateScores().
 
     //计算每条post对应upVa的时效性
-    public static boolean calculateTimeOfTag(String issueDate, String postDate) throws ParseException {
+    public static double calculateTimeOfTag(String issueDate, String postDate) throws ParseException {
         String issueStart = issueDate.replaceAll("[T,Z]", "");
         String postEnd = postDate.replaceAll("[T,Z]", "");
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-ddhh:mm:ss");
         Date iStart = sdf.parse(issueStart);
         Date pEnd = sdf.parse(postEnd);
         long diffSeconds = (iStart.getTime() - pEnd.getTime()) / 1000;
-        int day = (int) (diffSeconds / (24 * 3600));
-        if (day / 365 - 2 >= 0) {
-            return true;
-        } else {
-            return false;
-        }
+        double aDouble = Double.parseDouble(diffSeconds + "");
+        double day = (aDouble / (24 * 3600));
+        return day;
     }
 
 
@@ -549,9 +525,7 @@ public class CalculateScoreAlgorithm {
                 for (int i = startingScoreIndex; i <= endingScoreIndex; i++) {
                     // Social
                     // Z_Score:计算RA_SSA_Z_score，此处Z_SCORE_COEFFICIENTS表示alpha，beta为1，对于第一条缺陷报告来说，所有的成员都没有分派缺陷报告，因此为0
-                    rs.differentScores[i] = rs.differentScores[i]
-                            + Constants.Z_SCORE_COEFFICIENTS[i]
-                            * cm.intersection_z_score;
+                    rs.differentScores[i] = rs.differentScores[i] + Constants.Z_SCORE_COEFFICIENTS[i] * cm.intersection_z_score;
                     // Traditional Z_Score: 33333333333
                     // rs.differentScores[i] = rs.differentScores[i] +
                     // Constants.Z_SCORE_COEFFICIENTS[i] *
@@ -571,8 +545,7 @@ public class CalculateScoreAlgorithm {
             if (minimumScore[i] < 0) {// Add minimumScores to minimumScore2:
                 for (String aLogin : usersAndScores.keySet()) {
                     Scores rs = usersAndScores.get(aLogin);
-                    rs.differentScores[i] = rs.differentScores[i]
-                            - minimumScore[i];
+                    rs.differentScores[i] = rs.differentScores[i] - minimumScore[i];
                     usersAndScores.put(aLogin, rs);
                 }// for (k
             }// if (minim....
@@ -1026,8 +999,7 @@ public class CalculateScoreAlgorithm {
                         // recommend them):
                         // 排除ghLogin为空值的情况，确保推荐的修复者有ghLogin值
                         if (communityMemberThatHasBeenAssignedToThisIssue != null) {// Triage:
-                            ProvideData
-                                    .initializeIntersectionWithBugsScores(cmAL);
+                            ProvideData.initializeIntersectionWithBugsScores(cmAL);
 
                             // Finding NF (Normalization Factor归一化因子);
                             // <averageOfUpVotesForQuestionsTaggedWithAtLeastOneOfTagsInMatchedTags_SO_b>:
@@ -1036,8 +1008,27 @@ public class CalculateScoreAlgorithm {
                             // Mean调和平均值；每一份缺陷报告一个NF，根据缺陷报告和该项目所有的Post来计算NF
                             double NF = calculateHarmonicMeanOfUpVotesForQuestionsTaggedWithAtLeastOneOfTagsInMatchedTags_SO_b(
                                     issTI, posts1ById);
-                            // Iterating over all community members, and
-                            // calculating their scores for this issue:
+
+                            //****************************upVote时效性每条BR对应的Posts开始****************************
+                            double totalDayOfPosts = 0;
+                            for (int k = 0; k < cmAL.size(); k++) {
+                                CommunityMember cm = cmAL.get(k);
+                                ArrayList<SOPost> soPostsOfThisCommunityMemberAL = null;
+                                if (posts2ByOwnerId.containsKey(cm.SOId))
+                                    soPostsOfThisCommunityMemberAL = ProvideData
+                                            .copyPostContentsFromArrayListOfStringArray_OnlyThereAreSomeFields1(posts2ByOwnerId
+                                                    .get(cm.SOId));
+                                for (int s = 0; s < soPostsOfThisCommunityMemberAL.size(); s++) {
+                                    SOPost post_onlyLimitedInfo = soPostsOfThisCommunityMemberAL.get(s);
+                                    if (iss.createdAt.compareTo(post_onlyLimitedInfo.creationDate) > 0) {
+                                        totalDayOfPosts = calculateTimeOfTag(iss.createdAt, post_onlyLimitedInfo.creationDate);
+                                    }
+                                }
+                            }
+                            double meanDayOfPosts = totalDayOfPosts / cmAL.size();
+                            //****************************upVote时效性每条BR对应的Posts结束****************************
+
+                            // Iterating over all community members, and calculating their scores for this issue:
                             // 循环该项目的每一个成员
                             for (int k = 0; k < cmAL.size(); k++) {
                                 // Identifying the posts of this community
@@ -1059,7 +1050,7 @@ public class CalculateScoreAlgorithm {
                                         cm,
                                         p,
                                         maximumNumberOfPreviousAssignmentsForAMemberInThisProject,
-                                        NF);
+                                        NF, meanDayOfPosts);
                             }// for (i.
                             // System.out.println();
                             CommunityMembersRankingResult assigneeRank = new CommunityMembersRankingResult();
