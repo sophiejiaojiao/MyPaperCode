@@ -1,5 +1,12 @@
 package bugAssignment;
 
+import data.*;
+
+import java.io.FileWriter;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
 import bugAssignment.Constants.ConditionType;
 import bugAssignment.Constants.SortOrder;
 import data.*;
@@ -9,7 +16,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class CalculateScoreAlgorithm {
+public class authorCode {
     // 调和平均数=每个数的倒数和的算术平均数的倒数-------------------------------------------------------------------------------------------------
     private static double calculateHarmonicMeanOfUpVotesForQuestionsTaggedWithAtLeastOneOfTagsInMatchedTags_SO_b(
             IssueTextualInformation issTI, TreeMap<String, String[]> posts1ById) {
@@ -168,7 +175,7 @@ public class CalculateScoreAlgorithm {
                                        CommunityMember cm, // ArrayList<Issue> issAL,
                                        int indexOfTheCurrentIssue,
                                        int maximumNumberOfPreviousAssignmentsForAMemberInThisProject,
-                                       double NF, double meanDayOfPosts) {// NF: Normalization Factor =
+                                       double NF) {// NF: Normalization Factor =
         // averageOfUpVotesForQuestionsTaggedWithAtLeastOneOfTagsInMatchedTags_SO_b
         // if (cm.SOId.equals("900911"))
         // System.out.println("ssss");
@@ -182,14 +189,6 @@ public class CalculateScoreAlgorithm {
                 SOPost post_onlyLimitedInfo = soPostsOfThisUserAL.get(i);
                 // means that the issueDate > postDate即在缺陷报告之前有相关QA互动信息
                 if (issueDate.compareTo(post_onlyLimitedInfo.creationDate) > 0) {
-                    //******************************添加关键字的时效性开始*********************
-                    double timeOfUpVote = 0;
-                    try {
-                        timeOfUpVote = calculateTimeOfTag(issueDate, post_onlyLimitedInfo.creationDate) / 365;
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-                    //******************************添加关键字的时效性结束*********************
                     String originalPostTypeId = post_onlyLimitedInfo.postTypeId;
                     // System.out.println(post_onlyLimitedInfo.id + "\t" +
                     // post_onlyLimitedInfo.parentId);
@@ -207,53 +206,6 @@ public class CalculateScoreAlgorithm {
                         // question的信息替换post_completeInfo原有的post信息，该信息中有tag
                         post_completeInfo = ProvideData.copySOPostFromStringArray_OnlyThereAreSomeFields1(allPosts1ById.get(post_onlyLimitedInfo.parentId));
                     String[] tags = splitAnStringIncludingAllTagsToStringArrayOfTags(post_completeInfo.tags);
-
-                    // *********************************开始加权********************************
-                    HashMap<String, Double> numOfTags = calculateNumOfTagInIssueText(
-                            tags, issTI);
-                    double wOfTags = 0;
-                    for (int j = 0; j < tags.length; j++) {
-                        if (textIsMatchedWithTagOrNot(issTI.projectLanguage,
-                                tags[j])
-                                || textIsMatchedWithTagOrNot(
-                                issTI.projectDescription, tags[j])
-                                || textIsMatchedWithTagOrNot(issTI.issueTitle,
-                                tags[j])
-                                || textIsMatchedWithTagOrNot(issTI.issueBody,
-                                tags[j])) {
-                            if (originalPostTypeId.equals("2")) {
-                                cm.intersection_A++;
-                                //点赞数时效性
-                                double tempValue = 1 - (timeOfUpVote - meanDayOfPosts) / meanDayOfPosts;
-//                                不加点赞数时效性
-                                cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost) * numOfTags.get(tags[j]);
-                                //加上点赞数的时效性方法1
-//                                cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost * tempValue + 1) * numOfTags.get(tags[j]);
-//                                加上点赞数时效性方法2
-//                                cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost * (1/(1+timeOfUpVote))+ 1) * numOfTags.get(tags[j]);
-                            } else if (originalPostTypeId.equals("1")) {
-                                cm.intersection_Q++;
-                                wOfTags = wOfTags + numOfTags.get(tags[j]);
-                            }
-                        }
-                    }
-                    int tempScoreOfThePost;
-                    if (scoreOfThePost < 0) {
-                        tempScoreOfThePost = 0;
-                    } else {
-                        tempScoreOfThePost = scoreOfThePost;
-                    }
-                    double tempValue = 1 - (timeOfUpVote - meanDayOfPosts) / meanDayOfPosts;
-//                    不加点赞数时效性
-                    cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost + 1.0);
-                    //加上点赞数时效性方法1
-//                    cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost * tempValue + 1.0);
-                    //加上点赞数时效性方法2
-//                    cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost * (1/(1+timeOfUpVote)) + 1.0);
-                    // ********************************结束加权*********************************
-
-/*
-                    // ********************************未加权开始*********************************
                     int numberOfMatchedTags = 0;
                     for (int j = 0; j < tags.length; j++) {//For all tags
                         //只要tags中的某个tag与缺陷报告文本信息成功匹配一次，分数就加1，然后匹配下一个tag
@@ -284,16 +236,11 @@ public class CalculateScoreAlgorithm {
                         tempScoreOfThePost = scoreOfThePost;
                     //计算Q_score的公式:Q_score=u*Q_score+(match_tag)/(upVote+1)
                     cm.intersection_Q_score = cm.intersection_Q_score + numberOfMatchedTags / (tempScoreOfThePost + 1.0);
-                    // ************************************未加权结束**********************************************
-*/
 
                 }// if issueD....
             }// for (i.
             // z-score that considers votes of Q/A:
             cm.intersection_Q_score = NF * cm.intersection_Q_score;
-            //***************************尝试设置NF=1，即不要参数u开始****************************
-//            cm.intersection_Q_score = 1 * cm.intersection_Q_score;
-            //***************************************结束**************************************
             // 计算SSA_Z_score
             if (cm.intersection_A_score + cm.intersection_Q_score > 0)
                 cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score)
@@ -323,83 +270,6 @@ public class CalculateScoreAlgorithm {
         cm.combinedScore2 = cm.weightedRandomScore_count + 0.002
                 * cm.intersection_z_score;
     }// calculateScores().
-
-    //计算每条post对应upVa的时效性
-    public static double calculateTimeOfTag(String issueDate, String postDate) throws ParseException {
-        String issueStart = issueDate.replaceAll("[T,Z]", "");
-        String postEnd = postDate.replaceAll("[T,Z]", "");
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-ddhh:mm:ss");
-        Date iStart = sdf.parse(issueStart);
-        Date pEnd = sdf.parse(postEnd);
-        long diffSeconds = (iStart.getTime() - pEnd.getTime()) / 1000;
-        double aDouble = Double.parseDouble(diffSeconds + "");
-        double day = (aDouble / (24 * 3600));
-        return day;
-    }
-
-    public static int calTimeOfIssue(String issueDate, String postDate) throws ParseException {
-        String issueStart = issueDate.replaceAll("[T,Z]", "");
-        String postEnd = postDate.replaceAll("[T,Z]", "");
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-ddhh:mm:ss");
-        Date iStart = sdf.parse(issueStart);
-        Date pEnd = sdf.parse(postEnd);
-        long diffSeconds = (iStart.getTime() - pEnd.getTime()) / 1000;
-        double aDouble = Double.parseDouble(diffSeconds + "");
-        int day = (int) (aDouble / (24 * 3600));
-        return day;
-    }
-
-    public static HashMap<String, Double> calculateNumOfTagInIssueText(
-            String[] tags, IssueTextualInformation issTI) {
-        HashMap<String, Double> hmI = new HashMap<String, Double>();
-        HashMap<String, Double> hmD = new HashMap<String, Double>();
-        // 将需要比对的BR文本合成一个string并用空格替换标点符号
-        String issText = (issTI.projectLanguage + issTI.projectDescription + issTI.issueLabels + issTI.issueTitle + issTI.issueBody).replaceAll("[,\\.，。\\!！《》、;\\:；：\\s]", " ");
-        // 空格分词法
-        String[] issWord = issText.split(" ");
-
-        //统计iss所有的单词个数
-        int issCount = issWord.length;
-
-        double countTotalTag = 0;
-
-        /*定义匹配成功的标签的平均数，即匹配的总数/标签类别数，如Post1与BR匹配的有2个A，3个B，0个C，则标签平均数=5/3
-        这个数等价于作者的匹配一次，分数加1
-         */
-        double meanTagNumOfEveryPost;
-
-        for (int i = 0; i < tags.length; i++) {
-            double count = 0;
-            for (int j = 0; j < issWord.length; j++) {
-                if (tags[i].equals(issWord[j])) {
-                    count++;
-                    countTotalTag++;
-                }
-            }
-            //方法四：直接用标签数量作为权值
-            hmI.put(tags[i], count);
-        }
-        meanTagNumOfEveryPost = countTotalTag / tags.length;
-        // 计算tag的权值
-        double weightOfTag;
-        for (Map.Entry<String, Double> entry : hmI.entrySet()) {
-            //方法1 算标签占改条Post的标签在BR中的总数的权值
-//            hmD.put(entry.getKey(), entry.getValue() / countTotalTag);
-            //方法2 算标签占BR总数的权值
-//            hmD.put(entry.getKey(), entry.getValue() / issCount);
-            //方法3
-            //以平均次数等价作者的1次，然后看每个标签与平均次数的离散程度
-//            weightOfTag = ((entry.getValue() - meanTagNumOfEveryPost) / meanTagNumOfEveryPost) + 1;
-//            hmD.put(entry.getKey(), weightOfTag);
-        }
-//        测试方法2在BR中的词频
-//        return hmD;
-//        方法3直接用标签的数量做权值
-        //测试方法3
-//        return hmD;
-        //测试方法4
-        return hmI;
-    }
 
     // ---------------------------------------------------------------------------------------------------------------------------------------
     // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -633,158 +503,6 @@ public class CalculateScoreAlgorithm {
     }// copyUsersWithZeroAssignmentPlusSOScoreToHashMapOfArrayList().
 
     // ---------------------------------------------------------------------------------------------------------------------------------------
-//************************************缺陷修复工作时效性开始*****************************************
-    public static void testForBRTime(ArrayList<CommunityMember> cmAL, ArrayList<String> allAssignees,
-                                     int indexOfTheCurrentIssue, HashMap<String, Integer> allPreviousAssignees_unique,
-                                     CommunityMember communityMemberThatHasBeenAssignedToThisIssue,
-                                     CommunityMembersRankingResult assigneeRank, ArrayList<String> createdDateOfBR) {
-        HashMap<String, Scores> allPreviousAssigneesAndTheirChances = new HashMap<String, Scores>();
-        ArrayList<String> silentUsers = new ArrayList<String>();
-
-        ArrayList<String> silentUsers2_forZeroR = new ArrayList<String>();
-        int numberOfUsersWithZeroREqualToOne = 0;
-        for (int i = 0; i < Constants.TOTAL_NUMBER_OF_METRICS; i++) {
-            assigneeRank.differentRankings[i] = -1;
-        }
-
-        double[] sumOfScores = new double[Constants.TOTAL_NUMBER_OF_METRICS];
-        for (int i = 0; i < Constants.TOTAL_NUMBER_OF_METRICS; i++) {
-            sumOfScores[i] = 0;
-        }
-        //将第一条缺陷报告的处理方式和其他缺陷报告的处理方式分开，因为第一条缺陷报告对应的候选修复者都没有缺陷修复工作时效性分数
-        if (indexOfTheCurrentIssue > 0) {
-            int numberOfUsersWithZeroRValueEqualToOne = 0;
-            for (int k = 0; k < cmAL.size(); k++) {
-                if (cmAL.get(k).zeroRScore_zeroOrOne == 1) {
-                    numberOfUsersWithZeroRValueEqualToOne++;
-                }
-            }
-            //该for循环将当前BR的所有候选者分成了有修复经验的和无修复经验的
-            for (int k = 0; k < cmAL.size(); k++) {
-                CommunityMember cm = cmAL.get(k);
-                if (cm.randomScore_zeroOrOne == 1) {
-                    Scores rs = new Scores();
-                    rs.differentScores[0] = (double) 1 / allPreviousAssignees_unique.size();
-                    sumOfScores[0] = sumOfScores[0] + rs.differentScores[0];
-                    if (cm.zeroRScore_zeroOrOne == 1) {
-                        rs.differentScores[2] = (double) 1 / numberOfUsersWithZeroRValueEqualToOne;
-                        sumOfScores[2] = sumOfScores[2] + rs.differentScores[2];
-                        numberOfUsersWithZeroREqualToOne++;
-                    } else {
-                        silentUsers2_forZeroR.add(cm.ghLogin);
-                    }
-                    rs.differentScores[1] = (double) cm.weightedRandomScore_count / indexOfTheCurrentIssue;
-                    sumOfScores[1] = sumOfScores[1] + rs.differentScores[1];
-                    allPreviousAssigneesAndTheirChances.put(cm.ghLogin, rs);
-                } else {
-                    silentUsers.add(cm.ghLogin);
-                    silentUsers2_forZeroR.add(cm.ghLogin);
-                }
-
-            }
-            //计算缺陷修复工作时效性
-            String aTempLogin;
-            for (int p = 0; p < indexOfTheCurrentIssue; p++) {
-                aTempLogin = allAssignees.get(p);
-                //获取其SSA_Z_score
-                Scores rs = allPreviousAssigneesAndTheirChances.get(aTempLogin);
-                //计算已修复过的缺陷报告和待修复缺陷报告的时间差
-                int timeDay = 0;
-                try {
-                    timeDay = calTimeOfIssue(createdDateOfBR.get(indexOfTheCurrentIssue), createdDateOfBR.get(p));
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-                //以平均相差天数作为衡量分数的指标
-//                double recencyScore = (double) 1 / (1 + (timeDay / 365));
-//                double recencyScore = (double) 1 / (1 + (timeDay / 90));
-//                double recencyScore = (double) 1 / (1 + (timeDay / 180));
-//                double recencyScore = (double) 1 / (1 + (timeDay / 60));
-//                double recencyScore = (double) 1 / (1 + (timeDay / 30));
-//                double recencyScore = (double) 1 / (1 + (timeDay / 15));
-//                double recencyScore = (double) 1 / (1 + (timeDay / 7));
-                double recencyScore = (double) 1 / (1 + timeDay);
-
-                for (int i = 3; i < Constants.TOTAL_NUMBER_OF_METRICS; i++) {
-                    rs.differentScores[i] = rs.differentScores[i] + recencyScore;
-                }
-                allPreviousAssigneesAndTheirChances.put(aTempLogin, rs);
-            }
-            mergeWith_timeAndSSA_Z_score(cmAL, allPreviousAssigneesAndTheirChances, 4, Constants.TOTAL_NUMBER_OF_METRICS - 1);
-            calculateSums(allPreviousAssigneesAndTheirChances, sumOfScores, 3, Constants.TOTAL_NUMBER_OF_METRICS - 1);
-            HashMap<Integer, ArrayList<String>> allPreviousAssigneesWithZeroAssignmentPlusSOScore = new HashMap<Integer, ArrayList<String>>();
-            copyUsersWithZeroAssignmentPlusSOScoreToHashMapOfArrayList(
-                    allPreviousAssigneesAndTheirChances,
-                    allPreviousAssigneesWithZeroAssignmentPlusSOScore, 4,
-                    Constants.TOTAL_NUMBER_OF_METRICS - 1);
-            determineRankOfRealAssigneeRandomlyBasedOnScores(
-                    allPreviousAssigneesAndTheirChances,
-                    communityMemberThatHasBeenAssignedToThisIssue,
-                    assigneeRank, sumOfScores, 0, 0, 0);
-            determineRankOfRealAssigneeRandomlyBasedOnScores(
-                    allPreviousAssigneesAndTheirChances,
-                    communityMemberThatHasBeenAssignedToThisIssue,
-                    assigneeRank, sumOfScores, 0, 1, 1);
-            determineRankOfRealAssigneeRandomlyBasedOnScores(
-                    allPreviousAssigneesAndTheirChances,
-                    communityMemberThatHasBeenAssignedToThisIssue,
-                    assigneeRank, sumOfScores, 0, 2, 2);
-            determineRankOfRealAssigneeRandomlyBasedOnScores(
-                    allPreviousAssigneesAndTheirChances,
-                    communityMemberThatHasBeenAssignedToThisIssue,
-                    assigneeRank, sumOfScores, 0, 3, 3);
-            determineRankOfRealAssignee_FirstStaticallyThenRandomly_BasedOnScores(
-                    allPreviousAssigneesAndTheirChances,
-                    communityMemberThatHasBeenAssignedToThisIssue,
-                    assigneeRank, 0, 4, Constants.TOTAL_NUMBER_OF_METRICS - 1);
-            for (int i = 4; i < Constants.TOTAL_NUMBER_OF_METRICS; i++) {
-                ArrayList<String> usersWithZeroAssignmentPlusSOScore_accordingToAScoringType = allPreviousAssigneesWithZeroAssignmentPlusSOScore.get(i);
-                if ((usersWithZeroAssignmentPlusSOScore_accordingToAScoringType != null)
-                        && (usersWithZeroAssignmentPlusSOScore_accordingToAScoringType.size() > 0)) {
-                    determineRankOfRealAssigneeCompletelyRandomly(
-                            usersWithZeroAssignmentPlusSOScore_accordingToAScoringType, communityMemberThatHasBeenAssignedToThisIssue, assigneeRank,
-                            allPreviousAssigneesAndTheirChances.size() - usersWithZeroAssignmentPlusSOScore_accordingToAScoringType.size(), i, i);
-                }
-            }
-        } else {
-            for (int k = 0; k < cmAL.size(); k++) {
-                CommunityMember cm = cmAL.get(k);
-                silentUsers.add(cm.ghLogin);
-                silentUsers2_forZeroR.add(cm.ghLogin);
-            }
-        }
-        determineRankOfRealAssigneeCompletelyRandomly(silentUsers,
-                communityMemberThatHasBeenAssignedToThisIssue, assigneeRank,
-                allPreviousAssigneesAndTheirChances.size(), 0, 0);
-        determineRankOfRealAssigneeCompletelyRandomly(silentUsers,
-                communityMemberThatHasBeenAssignedToThisIssue, assigneeRank,
-                allPreviousAssigneesAndTheirChances.size(), 1, 1);
-        determineRankOfRealAssigneeCompletelyRandomly(silentUsers2_forZeroR,
-                communityMemberThatHasBeenAssignedToThisIssue, assigneeRank,
-                numberOfUsersWithZeroREqualToOne, 2, 2);
-        determineRankOfRealAssigneeCompletelyRandomly(silentUsers,
-                communityMemberThatHasBeenAssignedToThisIssue, assigneeRank,
-                allPreviousAssigneesAndTheirChances.size(), 3, 3);
-
-        HashMap<String, Scores> allSilentUsersAndTheirChances = new HashMap<String, Scores>();
-        for (String aLogin : silentUsers) {
-            Scores rs = new Scores();
-            allSilentUsersAndTheirChances.put(aLogin, rs);
-        }
-        mergeWith_timeAndSSA_Z_score(cmAL, allSilentUsersAndTheirChances, 4, Constants.TOTAL_NUMBER_OF_METRICS - 1);
-        //计算前四种分数的时候有用
-        calculateSums(allSilentUsersAndTheirChances, sumOfScores, 4, Constants.TOTAL_NUMBER_OF_METRICS - 1);
-        HashMap<Integer, ArrayList<String>> allSilentUsersWithZeroAssignmentPlusSOScore = new HashMap<Integer, ArrayList<String>>();
-        copyUsersWithZeroAssignmentPlusSOScoreToHashMapOfArrayList(
-                allSilentUsersAndTheirChances,
-                allSilentUsersWithZeroAssignmentPlusSOScore, 4,
-                Constants.TOTAL_NUMBER_OF_METRICS - 1);
-        determineRankOfRealAssignee_FirstStaticallyThenRandomly_BasedOnScores(
-                allSilentUsersAndTheirChances,
-                communityMemberThatHasBeenAssignedToThisIssue, assigneeRank,
-                allPreviousAssigneesAndTheirChances.size(), 4,
-                Constants.TOTAL_NUMBER_OF_METRICS - 1);
-    }
 
     public static void mergeWith_timeAndSSA_Z_score(ArrayList<CommunityMember> cmAL, HashMap<String, Scores> usersAndScores, int startingScoreIndex, int endingScoreIndex) {
         double[] minimumScore = new double[Constants.TOTAL_NUMBER_OF_METRICS];
@@ -1069,14 +787,14 @@ public class CalculateScoreAlgorithm {
             HashSet<String> ownerLoginAndProjectNames = TSVManipulations
                     .readUniqueFieldFromTSV(communityInputPath,
                             communitiesSummaryInputTSV, 1, 3,
-                            ConditionType.NO_CONDITION, 0, "", 0, "",
+                            Constants.ConditionType.NO_CONDITION, 0, "", 0, "",
                             showProgressInterval, Constants.THIS_IS_REAL, 1);
             // Now, read all columns of projects and their members:
             // 返回的是tsvRecordsHashMap，其值为file中的所有值，主键为项目名
             TreeMap<String, String[]> projects = TSVManipulations
                     .readUniqueKeyAndItsValueFromTSV(projectsInputPath,
                             projectsInputTSV, null, 2, 9, Constants.ALL,
-                            ConditionType.NO_CONDITION, 0, "", 0, "",
+                            Constants.ConditionType.NO_CONDITION, 0, "", 0, "",
                             showProgressInterval * 20, Constants.THIS_IS_REAL,
                             2);
             // Read info of all posts made by all community members by id:
@@ -1086,7 +804,7 @@ public class CalculateScoreAlgorithm {
                     .readUniqueKeyAndItsValueFromTSV(
                             postsOfCommunityMembersInputPath,
                             postsOfCommunityMembersInputTSV, null, 0, 9,
-                            "0$1$2$3$4$5", ConditionType.NO_CONDITION, 0, "",
+                            "0$1$2$3$4$5", Constants.ConditionType.NO_CONDITION, 0, "",
                             0, "", showProgressInterval * 10, testOrReal, 3);
             // Read info of all posts made by all community members (by field
             // ownerUserId): (total: 3,642,245)
@@ -1096,8 +814,8 @@ public class CalculateScoreAlgorithm {
                     .readNonUniqueKeyAndItsValueFromTSV(
                             postsOfCommunityMembersInputPath,
                             postsOfCommunityMembersInputTSV, null, 2,
-                            SortOrder.DEFAULT_FOR_STRING, 9, "0$1$2$3$6",
-                            ConditionType.NO_CONDITION, 0, "", 0, "",
+                            Constants.SortOrder.DEFAULT_FOR_STRING, 9, "0$1$2$3$6",
+                            Constants.ConditionType.NO_CONDITION, 0, "", 0, "",
                             showProgressInterval * 10, testOrReal, 4);
             // Reading assigned issues in all communities (projects):
             // 返回的tsvRecordsHashMap，其值为issues的"0$5$6$8$9$10"数据，保证了不存在完全相同的两行数据，主键为owner/repo并唯一
@@ -1105,8 +823,8 @@ public class CalculateScoreAlgorithm {
             TreeMap<String, ArrayList<String[]>> ownerLoginAndProjectName_and_allAssignedIssuesInThisProject = TSVManipulations
                     .readNonUniqueKeyAndItsValueFromTSV(
                             assignedIssuesInputPath, assignedIssuesInputTSV,
-                            null, 1, SortOrder.DEFAULT_FOR_STRING, 11,
-                            "0$5$6$8$9$10", ConditionType.NO_CONDITION, 0, "",
+                            null, 1, Constants.SortOrder.DEFAULT_FOR_STRING, 11,
+                            "0$5$6$8$9$10", Constants.ConditionType.NO_CONDITION, 0, "",
                             0, "", showProgressInterval * 5, testOrReal, 5);
             // fillStopWords();
             // Reading the community file:
@@ -1115,8 +833,8 @@ public class CalculateScoreAlgorithm {
             TreeMap<String, ArrayList<String[]>> ownerLoginAndProjectName_and_ItsCommunityMembers = TSVManipulations
                     .readNonUniqueKeyAndItsValueFromTSV(communityInputPath,
                             communityInputTSVFileName, null, 1,
-                            SortOrder.DEFAULT_FOR_STRING, 6, Constants.ALL,
-                            ConditionType.NO_CONDITION, 0, "", 0, "",
+                            Constants.SortOrder.DEFAULT_FOR_STRING, 6, Constants.ALL,
+                            Constants.ConditionType.NO_CONDITION, 0, "", 0, "",
                             showProgressInterval, testOrReal, 6);
 
             // Starting from the top numberOfProjectmembers, and writing triage
@@ -1220,16 +938,9 @@ public class CalculateScoreAlgorithm {
                     // allAssignees存放issAL中的每条iss的assigneeLogin信息
                     extractAndCopyAssigneeValues(issAL, allAssignees);
                     HashMap<String, Integer> allPreviousAssignees_unique = new HashMap<String, Integer>();
-                    //**************************创建一个存放处理过的缺陷报告的提出时间*******************************
-                    ArrayList<String> createdDateOfBR = new ArrayList<>();
-                    //*****************************************************************************************
                     // 循环该项目的每一条缺陷报告
                     for (int p = 0; p < issAL.size(); p++) {
                         Issue iss = issAL.get(p);
-                        //***********************存入当前处理的BR的提出时间***********************
-                        createdDateOfBR.add(iss.createdAt);
-                        //********************************************************************
-
                         // issTI表示该条缺陷报告的文本信息，包括项目language、description和缺陷报告label、title、body
                         IssueTextualInformation issTI = new IssueTextualInformation(
                                 aProject.language, aProject.description,
@@ -1254,30 +965,6 @@ public class CalculateScoreAlgorithm {
                             double NF = calculateHarmonicMeanOfUpVotesForQuestionsTaggedWithAtLeastOneOfTagsInMatchedTags_SO_b(
                                     issTI, posts1ById);
 
-                            //****************************upVote时效性每条BR对应的Posts开始****************************
-                            double totalDayOfPosts = 0;
-                            int count = 0;
-                            for (int k = 0; k < cmAL.size(); k++) {
-                                CommunityMember cm = cmAL.get(k);
-                                ArrayList<SOPost> soPostsOfThisCommunityMemberAL = null;
-                                if (posts2ByOwnerId.containsKey(cm.SOId))
-                                    soPostsOfThisCommunityMemberAL = ProvideData
-                                            .copyPostContentsFromArrayListOfStringArray_OnlyThereAreSomeFields1(posts2ByOwnerId
-                                                    .get(cm.SOId));
-                                for (int s = 0; s < soPostsOfThisCommunityMemberAL.size(); s++) {
-                                    SOPost post_onlyLimitedInfo = soPostsOfThisCommunityMemberAL.get(s);
-                                    if (iss.createdAt.compareTo(post_onlyLimitedInfo.creationDate) > 0) {
-                                        totalDayOfPosts = totalDayOfPosts + calculateTimeOfTag(iss.createdAt, post_onlyLimitedInfo.creationDate);
-                                        count++;
-                                    }
-                                }
-                            }
-                            //Post时效方法1
-//                            double meanDayOfPosts = totalDayOfPosts / cmAL.size();
-                            //Post时效方法2
-                            double meanDayOfPosts = totalDayOfPosts / count;
-                            //****************************upVote时效性每条BR对应的Posts结束****************************
-
                             // Iterating over all community members, and calculating their scores for this issue:
                             // 循环该项目的每一个成员
                             for (int k = 0; k < cmAL.size(); k++) {
@@ -1300,14 +987,8 @@ public class CalculateScoreAlgorithm {
                                         cm,
                                         p,
                                         maximumNumberOfPreviousAssignmentsForAMemberInThisProject,
-                                        NF, meanDayOfPosts);
+                                        NF);
                             }// for (i.
-/*
-                            //*******************添加calculateScore的排名***********************************
-                            TreeMap<String, Integer> scoreRank = new TreeMap<String, Integer>();
-                            determineRankBasedOnCalculateScore(communityMemberThatHasBeenAssignedToThisIssue, cmAL, scoreRank);
-                            //****************************************************************
-*/
                             // System.out.println();
                             CommunityMembersRankingResult assigneeRank = new CommunityMembersRankingResult();
                             // determineAssigneeRanksStatically(communityMemberThatHasBeenAssignedToThisIssue,
@@ -1315,10 +996,7 @@ public class CalculateScoreAlgorithm {
 
                             // 第二个方法
                             // （该项目的所有成员信息，该项目的所有缺陷报告对应的assigneeLogin，第几条缺陷报告，“之前所有的唯一修复者”，该项目的ghLogin=assigneeLogin，assigneeRank）
-//                            determineAssigneeRanksRandomly(cmAL, allAssignees, p, allPreviousAssignees_unique, communityMemberThatHasBeenAssignedToThisIssue, assigneeRank);
-                            //*********************************测试缺陷修复工作时效性开始*********************************
-                            testForBRTime(cmAL, allAssignees, p, allPreviousAssignees_unique, communityMemberThatHasBeenAssignedToThisIssue, assigneeRank, createdDateOfBR);
-                            //*********************************测试缺陷修复工作时效性结束*********************************
+                            determineAssigneeRanksRandomly(cmAL, allAssignees, p, allPreviousAssignees_unique, communityMemberThatHasBeenAssignedToThisIssue, assigneeRank);
                             // containsKey()是map集合中判断是否包含指定键名的方法
                             if (allPreviousAssignees_unique
                                     .containsKey(communityMemberThatHasBeenAssignedToThisIssue.ghLogin)) {
@@ -1379,24 +1057,6 @@ public class CalculateScoreAlgorithm {
             e.printStackTrace();
         }
     }// triage1_basedOnSimpleIntersectionOfIssueTextualFieldsInGHAndTagsInSO().
-
-    public static void determineRankBasedOnCalculateScore(CommunityMember communityMemberThatHasBeenAssignedToThisIssue, ArrayList<CommunityMember> cmAL, TreeMap<String, Integer> scoreRank) {
-        Random random = new Random();
-        int numOfMemWithGreaterScore = 0;
-        int numOfMemWithEqualScore = 0;
-        double scoresOfTheRealAssignee = communityMemberThatHasBeenAssignedToThisIssue.intersection_z_score;
-        for (int k = 0; k < cmAL.size(); k++) {
-            CommunityMember cm = cmAL.get(k);
-            if (cm.intersection_z_score > scoresOfTheRealAssignee) {
-                numOfMemWithGreaterScore++;
-            } else if (cm.intersection_z_score == scoresOfTheRealAssignee) {
-                numOfMemWithEqualScore++;
-            }
-        }
-        //nextInt(x)是0到x，不包括x
-        int rank = numOfMemWithGreaterScore + random.nextInt(numOfMemWithEqualScore) + 1;
-        scoreRank.put(communityMemberThatHasBeenAssignedToThisIssue.ghLogin, rank);
-    }
     // -----------------------------------------------------------------------------------------------------------------------------------------------------
     // -----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1405,8 +1065,8 @@ public class CalculateScoreAlgorithm {
 //        for (int i = 0; i < 1; i++)
 //        triage2_basedOnMultipleCriteria(
 //                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
-//                "communitiesOf3Projects.tsv",//"communitiesOf3Projects.tsv"
-//                "communitiesSummary(3Projects).tsv",// communitiesOf3Projects.tsv","communitiesSummary(3Projects).tsv"
+//                "communityOf3Ptest1274.tsv",//"communitiesOf3Projects.tsv"
+//                "communitiesSummary(3Projectstest1274).tsv",// "communitiesSummary(3Projects).tsv"
 //                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
 //                "projects-top20.tsv",
 //                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
@@ -1414,7 +1074,7 @@ public class CalculateScoreAlgorithm {
 //                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
 //                "Posts-madeByCommunityMembers-top20Projects.tsv", 20,
 //                Constants.DATASET_DIRECTORY_RECOMMEND_RESULTS,
-//                "testMyMethodFor3Projects.tsv",
+//                "authorCode3Projects.tsv",
 //                100000, Constants.THIS_IS_REAL);
         //17p
         for (int i = 0; i < 1; i++)
@@ -1429,7 +1089,7 @@ public class CalculateScoreAlgorithm {
                     Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
                     "Posts-madeByCommunityMembers-top20Projects.tsv", 20,
                     Constants.DATASET_DIRECTORY_RECOMMEND_RESULTS,
-                    "testMyMethodFor17Projects.tsv",
+                    "testFor17Projects.tsv",
                     100000, Constants.THIS_IS_REAL);
 //        //20p
 //        for (int i = 0; i < 1; i++)
@@ -1450,3 +1110,4 @@ public class CalculateScoreAlgorithm {
     }// main().
 
 }
+

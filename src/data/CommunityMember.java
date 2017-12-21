@@ -6,7 +6,7 @@ public class CommunityMember {
      * 包括所在的项目Id、项目名称、SOId、ghLogin、ghMySQLId、ghMongoDBId
      * 问题：1.从intersection_A往后所有的成员变量代表什么意思？
      */
-    public CommunityMember(CommunityMember otherCommunityMember){
+    public CommunityMember(CommunityMember otherCommunityMember) {
         this.mySQLProjectId = otherCommunityMember.mySQLProjectId;
         this.ownerLoginAndProjectName = otherCommunityMember.ownerLoginAndProjectName;
         this.SOId = otherCommunityMember.SOId;
@@ -14,9 +14,11 @@ public class CommunityMember {
         this.ghMySQLId = otherCommunityMember.ghMySQLId;
         this.ghMongoDBId = otherCommunityMember.ghMongoDBId;
     }//end of constructor.
-    public CommunityMember(){
+
+    public CommunityMember() {
         super();
     }
+
     public String mySQLProjectId;
     public String ownerLoginAndProjectName;
     public String SOId;
@@ -33,10 +35,6 @@ public class CommunityMember {
     public double intersection_Q_score; //Alaki.某社区成员的提问分数，对应公式Q_score
     public double intersection_z_score;//
 
-    public int totalAnswers;
-    public int totalQuestions;
-    public double traditional_z_score;
-
     //For greedy approaches, based on only previous assignments:
     public int numberOfAssignmentsUpToNow;
     public int randomScore_zeroOrOne;
@@ -45,4 +43,11 @@ public class CommunityMember {
 
     public double combinedScore1;
     public double combinedScore2;
+
+    //*********************添加计算answerNum和Z-score时需要的变量******************************
+    public int answerNum;
+    public int totalAnswers;
+    public int totalQuestions;
+    public double traditional_z_score;
+    //*************************************************************************************
 }

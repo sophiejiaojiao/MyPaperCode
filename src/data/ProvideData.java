@@ -252,6 +252,12 @@ public class ProvideData {//This class provides different static methods.
             cmAL.get(i).intersection_Q = 0;
             cmAL.get(i).intersection_Q_score = 0; //Alaki.
             cmAL.get(i).intersection_z_score = 0;
+            //*********************设置计算answerNum和Z-score时需要的变量******************************
+            cmAL.get(i).answerNum = 0;
+            cmAL.get(i).totalAnswers = 0;
+            cmAL.get(i).totalAnswers = 0;
+            cmAL.get(i).traditional_z_score = 0;
+            //*************************************************************************************
 
 //			cm.get(i).numberOfAssignmentsUpToNow = 0;
 //			cm.get(i).randomScore = 0;
