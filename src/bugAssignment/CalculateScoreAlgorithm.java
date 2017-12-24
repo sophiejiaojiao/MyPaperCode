@@ -226,11 +226,12 @@ public class CalculateScoreAlgorithm {
                         }
                     }
                     int tempScoreOfThePost;
-                    if (scoreOfThePost < 0) {
-                        tempScoreOfThePost = 0;
-                    } else {
-                        tempScoreOfThePost = scoreOfThePost;
-                    }
+//                    if (scoreOfThePost < 0) {
+//                        tempScoreOfThePost = 0;
+//                    } else {
+//                        tempScoreOfThePost = scoreOfThePost;
+//                    }
+                    tempScoreOfThePost = scoreOfThePost;
                     cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost + 1.0);
                     // ********************************结束加权*********************************
 /*
@@ -278,14 +279,13 @@ public class CalculateScoreAlgorithm {
             if (cm.intersection_A_score + cm.intersection_Q_score > 0) {
                 //该方法分值很高
                 cm.intersection_z_score = Math.pow((cm.intersection_A_score - cm.intersection_Q_score), 1 / 2.0) / (Math.pow((cm.intersection_A_score + cm.intersection_Q_score), 2));
-                //直接(a-q) / (a+q)
-//                cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score) / (cm.intersection_A_score + cm.intersection_Q_score);
+//                cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score) / ((cm.intersection_A_score + cm.intersection_Q_score) * Math.sqrt(cm.intersection_A_score + cm.intersection_Q_score));
+//                cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score) / Math.pow((cm.intersection_A_score + cm.intersection_Q_score),2);
                 //作者的方法
 //                cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score) / Math.sqrt(cm.intersection_A_score + cm.intersection_Q_score);
             } else {
                 cm.intersection_z_score = 0;
             }
-
 
         }// if.
         // indexOfTheCurrentIssue表示该缺陷报告是该项目的第几个缺陷报告
