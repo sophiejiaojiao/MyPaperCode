@@ -84,6 +84,10 @@ public class Constants {
 //    public static final int TOTAL_NUMBER_OF_METRICS = 16;
     public static final double A_FAR_LARGESCORE = 1000000.0;
 
+    //*********************************
+    public static final double NumberForWeightTag= 0.5;
+    //*********************************
+
     //Sort order:
     public enum SortOrder {
         ASCENDING_INTEGER, DESCENDING_INTEGER, DEFAULT_FOR_STRING

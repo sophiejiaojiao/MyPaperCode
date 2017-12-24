@@ -201,8 +201,6 @@ public class CalculateScoreAlgorithm {
                     String[] tags = splitAnStringIncludingAllTagsToStringArrayOfTags(post_completeInfo.tags);
 
                     // *********************************开始加权********************************
-                    HashMap<String, Double> numOfTags = calculateNumOfTagInIssueText(
-                            tags, issTI);
                     double wOfTags = 0;
                     for (int j = 0; j < tags.length; j++) {
                         if (textIsMatchedWithTagOrNot(issTI.projectLanguage,
@@ -213,12 +211,17 @@ public class CalculateScoreAlgorithm {
                                 tags[j])
                                 || textIsMatchedWithTagOrNot(issTI.issueBody,
                                 tags[j])) {
+                            HashMap<String, Double> numOfTags = calculateNumOfTagInIssueText(
+                                    tags, issTI);
                             if (originalPostTypeId.equals("2")) {
                                 cm.intersection_A++;
-                                cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost) * numOfTags.get(tags[j]);
+                                //点赞数加1
+                                cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost + 1.0) * (numOfTags.get(tags[j]) * Constants.NumberForWeightTag + 1 - Constants.NumberForWeightTag);
+                                //点赞数不加1
+//                                cm.intersection_A_score = cm.intersection_A_score + (scoreOfThePost) * (numOfTags.get(tags[j]) * Constants.NumberForWeightTag + 1 - Constants.NumberForWeightTag);
                             } else if (originalPostTypeId.equals("1")) {
                                 cm.intersection_Q++;
-                                wOfTags = wOfTags + numOfTags.get(tags[j]);
+                                wOfTags = wOfTags + numOfTags.get(tags[j]) * Constants.NumberForWeightTag + 1 - Constants.NumberForWeightTag;
                             }
                         }
                     }
@@ -230,7 +233,6 @@ public class CalculateScoreAlgorithm {
                     }
                     cm.intersection_Q_score = cm.intersection_Q_score + wOfTags / (tempScoreOfThePost + 1.0);
                     // ********************************结束加权*********************************
-
 /*
                     // ********************************未加权开始*********************************
                     int numberOfMatchedTags = 0;
@@ -270,16 +272,21 @@ public class CalculateScoreAlgorithm {
             }// for (i.
             // z-score that considers votes of Q/A:
             cm.intersection_Q_score = NF * cm.intersection_Q_score;
-            //***************************尝试设置NF=1，即不要参数u开始****************************
-//            cm.intersection_Q_score = 1 * cm.intersection_Q_score;
+            //***************************尝试设置NF=1，10，20即不要参数u开始****************************
+//            cm.intersection_Q_score = 10 * cm.intersection_Q_score;
             //***************************************结束**************************************
-            // 计算SSA_Z_score
-            if (cm.intersection_A_score + cm.intersection_Q_score > 0)
-                cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score)
-                        / Math.sqrt(cm.intersection_A_score
-                        + cm.intersection_Q_score);
-            else
+            if (cm.intersection_A_score + cm.intersection_Q_score > 0) {
+                //该方法分值很高
+                cm.intersection_z_score = Math.pow((cm.intersection_A_score - cm.intersection_Q_score), 1 / 2.0) / (Math.pow((cm.intersection_A_score + cm.intersection_Q_score), 2));
+                //直接(a-q) / (a+q)
+//                cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score) / (cm.intersection_A_score + cm.intersection_Q_score);
+                //作者的方法
+//                cm.intersection_z_score = (cm.intersection_A_score - cm.intersection_Q_score) / Math.sqrt(cm.intersection_A_score + cm.intersection_Q_score);
+            } else {
                 cm.intersection_z_score = 0;
+            }
+
+
         }// if.
         // indexOfTheCurrentIssue表示该缺陷报告是该项目的第几个缺陷报告
         // For the first issue, we don't have these scores (randomScore,
@@ -490,9 +497,22 @@ public class CalculateScoreAlgorithm {
                         if (scoresOfALogin.differentScores[i] == scoresOfTheRealAssignee.differentScores[i])
                             numberOfMembersWithEqualScore++;
                 }// for (aLogin.
-                assigneeRank.differentRankings[i] = numberOfRanksConsideredBefore
-                        + numberOfMembersWithGreaterScore
-                        + random.nextInt(numberOfMembersWithEqualScore) + 1;
+                //随机排名
+                if (numberOfMembersWithEqualScore > 0) {
+                    assigneeRank.differentRankings[i] = numberOfRanksConsideredBefore
+                            + numberOfMembersWithGreaterScore
+                            + random.nextInt(numberOfMembersWithEqualScore) + 1;
+                } else if (numberOfMembersWithEqualScore == 0) {
+                    assigneeRank.differentRankings[i] = numberOfRanksConsideredBefore
+                            + numberOfMembersWithGreaterScore
+                            + 1;
+                }
+//  取并列排名
+//                assigneeRank.differentRankings[i] = numberOfRanksConsideredBefore
+//                            + numberOfMembersWithGreaterScore
+//                            + 1;
+
+
             }// for (i.
         }// if (users....
     }// determineRankOfRealAssignee().
@@ -1344,25 +1364,10 @@ public class CalculateScoreAlgorithm {
 
     public static void main(String[] args) {
         // Test Run (3 projects):
-//        for (int i = 0; i < 1; i++)
-//        triage2_basedOnMultipleCriteria(
-//                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
-//                "communitiesOf3Projects.tsv",//"communitiesOf3Projects.tsv"
-//                "communitiesSummary(3Projects).tsv",// communitiesOf3Projects.tsv","communitiesSummary(3Projects).tsv"
-//                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
-//                "projects-top20.tsv",
-//                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
-//                "issues2-forTop20Projects.tsv", // “issues2-forTop20Projects.tsv"
-//                Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
-//                "Posts-madeByCommunityMembers-top20Projects.tsv", 20,
-//                Constants.DATASET_DIRECTORY_RECOMMEND_RESULTS,
-//                "testMyMethodFor3Projects.tsv",
-//                100000, Constants.THIS_IS_REAL);
-        //17p
         for (int i = 0; i < 1; i++)
             triage2_basedOnMultipleCriteria(
                     Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
-                    "communitiesOf3Projects.tsv",
+                    "communitiesOf3Projects.tsv",//"communitiesOf3Projects.tsv"
                     "communitiesSummary(3Projects).tsv",// communitiesOf3Projects.tsv","communitiesSummary(3Projects).tsv"
                     Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
                     "projects-top20.tsv",
@@ -1371,8 +1376,25 @@ public class CalculateScoreAlgorithm {
                     Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
                     "Posts-madeByCommunityMembers-top20Projects.tsv", 20,
                     Constants.DATASET_DIRECTORY_RECOMMEND_RESULTS,
-                    "testMyMethodFor17Projects.tsv",
+                    "testMyMethodFor3Projects.tsv",
                     100000, Constants.THIS_IS_REAL);
+
+
+        //17p
+//        for (int i = 0; i < 1; i++)
+//            triage2_basedOnMultipleCriteria(
+//                    Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
+//                    "communitiesOf17Projects.tsv",
+//                    "communitiesSummary(17Projects).tsv",// communitiesOf3Projects.tsv","communitiesSummary(3Projects).tsv"
+//                    Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
+//                    "projects-top20.tsv",
+//                    Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
+//                    "issues2-forTop20Projects.tsv", // “issues2-forTop20Projects.tsv"
+//                    Constants.DATASET_DIRECTORY_DATASETS_FOR_RECOMMEND,
+//                    "Posts-madeByCommunityMembers-top20Projects.tsv", 20,
+//                    Constants.DATASET_DIRECTORY_RECOMMEND_RESULTS,
+//                    "testMyMethodFor17Projects.tsv",
+//                    100000, Constants.THIS_IS_REAL);
 //        //20p
 //        for (int i = 0; i < 1; i++)
 //            triage2_basedOnMultipleCriteria(
